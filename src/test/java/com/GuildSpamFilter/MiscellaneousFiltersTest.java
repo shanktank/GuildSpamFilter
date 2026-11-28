@@ -56,6 +56,60 @@ public class MiscellaneousFiltersTest extends FilterTestBase
     }
 
     @Test
+    public void alwaysIncludedPlayersMatchBroadcastsSentAsTemplates()
+    {
+        // Seen in RuneLite's debug log, November 2026: the game sets a value in front of the player's name
+        when(config.filterXpMilestone()).thenReturn(true);
+        when(config.filterQuestComplete()).thenReturn(true);
+        when(config.filterPets()).thenReturn(true);
+        setAlwaysIncludedPlayers("Playername1, Playername2, Playername3");
+
+        assertShown("<int_0=52000000>Playername1 has reached <int_0:spacer> XP in Cooking.");
+        assertShown("<img=56> <str_quest_name_0=Daddy's Home>Playername2 has completed a quest: <str_quest_name_0>");
+        assertShown("<img=2> <int_p1=0>Playername3 feels something weird sneaking into <switch,int_p1,his,her,their> " +
+                "backpack: <int_0=13>Skotos at <int_0:spacer> killcount from Skotizo.");
+    }
+
+    @Test
+    public void alwaysIncludedPlayersMatchTheirOwnHighlightedName()
+    {
+        // Seen in RuneLite's debug log, November 2026: RuneLite's Chat Notifications plugin, with its "Highlight own
+        // name" setting on, wraps the player's own name in tags
+        when(config.filterRegularDrops()).thenReturn(true);
+        setAlwaysIncludedPlayers("Playername2");
+
+        assertShown("<img=2> <colHIGHLIGHT><u>Playername2</u><colNORMAL> received a drop: Yew seed<int_0=9826> " +
+                "(<int_0:spacer> coins) from Hespori.");
+        assertHidden("<img=2> Playername1 received a drop: Yew seed<int_0=9826> (<int_0:spacer> coins) from Hespori.");
+    }
+
+    @Test
+    public void customFiltersSeeTemplatesAsTheChatBoxShowsThem()
+    {
+        setCustomFilters("14 x Runite ore (142,926 coins)");
+        setCustomRegexFilters("^Playername1 received a drop: \\d+ x Rune halberd \\([\\d,]+ coins\\)\\.$\n" +
+                "into their backpack: Skotos at 13 killcount");
+
+        assertHidden("<img=2> Playername1 received a drop: <int_0=14><int_0:spacer> x Runite ore<int_0=142926> " +
+                "(<int_0:spacer> coins) from Zalcano.");
+        assertHidden("<img=2> Playername1 received a drop: <int_0=3><int_0:spacer> x Rune halberd<int_0=113133> " +
+                "(<int_0:spacer> coins).");
+        assertShown("<img=2> <int_p1=0>Playername1 feels something weird sneaking into <switch,int_p1,his,her,their> " +
+                "backpack: <int_0=13>Skotos at <int_0:spacer> killcount from Skotizo.");
+        assertHidden("<img=2> <int_p1=2>Playername1 feels something weird sneaking into <switch,int_p1,his,her,their> " +
+                "backpack: <int_0=13>Skotos at <int_0:spacer> killcount from Skotizo.");
+    }
+
+    @Test
+    public void templateValuesAreFilledInAsTheyAre()
+    {
+        // Made up: "$" and "\" would mean something to a regex replacement
+        setCustomFilters("quest: cost $1 \\ more");
+
+        assertHidden("<str_quest_name_0=Cost $1 \\ more>Playername1 has completed a quest: <str_quest_name_0>");
+    }
+
+    @Test
     public void alwaysIncludedPlayersAcceptAnySeparator()
     {
         when(config.filterRegularDrops()).thenReturn(true);

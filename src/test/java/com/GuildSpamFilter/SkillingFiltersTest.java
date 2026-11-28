@@ -73,6 +73,18 @@ public class SkillingFiltersTest extends FilterTestBase
         assertShown(XP_95M);
     }
 
+    @Test
+    public void readsXpMilestonesSentAsTemplates()
+    {
+        // Seen in RuneLite's debug log, November 2026: the XP is set in front of the player's name
+        when(config.filterXpMilestone()).thenReturn(true);
+        when(config.xpMilestoneThreshold()).thenReturn(50_000_000);
+
+        assertHidden("<int_0=23000000>Playername 1 has reached <int_0:spacer> XP in Hitpoints.");
+        assertShown("<int_0=52000000>PlayernameX has reached <int_0:spacer> XP in Cooking.");
+        assertShown("<img=2> <int_0=200000000>Playername3 has reached <int_0:spacer> XP in Cooking.");
+    }
+
     // Total level
 
     @Test

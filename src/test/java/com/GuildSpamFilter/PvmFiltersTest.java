@@ -105,6 +105,17 @@ public class PvmFiltersTest extends FilterTestBase
     }
 
     @Test
+    public void readsRaidLootWithHighlightedItemNames()
+    {
+        // Made up: RuneLite's Chat Notifications plugin wraps matches of its highlight lists in tags
+        when(config.filterRaidDrop()).thenReturn(true);
+        when(config.raidLootGpThreshold()).thenReturn(1_000_000_000);
+
+        assertHidden("Biceps Btw received special loot from a raid: <colHIGHLIGHT>Dexterous prayer scroll<colNORMAL> (20,000,000 coins).");
+        assertShown("Biceps Btw received special loot from a raid: <colHIGHLIGHT>Twisted bow<colNORMAL> (1,500,000,000 coins).");
+    }
+
+    @Test
     public void leavesItemsFromOtherCollectionLogTabsAlone()
     {
         when(config.filterRaidDrop()).thenReturn(true);
@@ -381,6 +392,47 @@ public class PvmFiltersTest extends FilterTestBase
 
         when(config.lootGpThreshold()).thenReturn(30_000_000);
         assertHidden(virtusDrop);
+    }
+
+    @Test
+    public void readsDropsSentAsTemplates()
+    {
+        // Seen in RuneLite's debug log, November 2026: since the 19th, the game sends the numbers in drops as tags
+        // that the chat box fills in. Read as plain text, every drop was worth 0 gp (the 0 in "<int_0:spacer>")
+        when(config.filterRegularDrops()).thenReturn(true);
+        when(config.lootGpThreshold()).thenReturn(150_000);
+
+        assertHidden("<img=2> Playername1 received a drop: <int_0=14><int_0:spacer> x Runite ore<int_0=142926> (<int_0:spacer> coins) from Zalcano.");
+        assertShown("<img=2> Playername1 received a drop: <int_0=189><int_0:spacer> x Mithril bar<int_0=158949> (<int_0:spacer> coins) from Zalcano.");
+        assertShown("<img=2> Playername1 received a drop: Awakener's orb<int_0=171728> (<int_0:spacer> coins) from Vardorvis.");
+        assertShown("<img=2> Playername1 received a drop: Tormented synapse<int_0=28249269> (<int_0:spacer> coins).");
+        assertHidden("<img=2> Playername1 received a drop: <int_0=3><int_0:spacer> x Rune halberd<int_0=113133> (<int_0:spacer> coins).");
+        // Not the game's doing: RuneLite's Chat Notifications plugin (off by default) has a "Highlight own name" setting
+        // (on by default) that wraps the player's own name in tags before the plugin sees the broadcast
+        assertHidden("<img=2> <colHIGHLIGHT><u>Playername2</u><colNORMAL> received a drop: Yew seed<int_0=9826> (<int_0:spacer> coins) from Hespori.");
+        assertShown("Playername1 received a drop: Bottomless milk bucket (empty)<int_0=1000000> (<int_0:spacer> coins) from Brutus.");
+    }
+
+    @Test
+    public void readsQuantitiesOfDropsSentAsTemplates()
+    {
+        // The quantity must be read for the Grand Exchange price to be multiplied by it
+        setTradeablePrice(536, "Dragon bones", 2_500L);
+        when(config.filterRegularDrops()).thenReturn(true);
+        when(config.lootGpThreshold()).thenReturn(1_000_000);
+
+        assertShown("Playername1 received a drop: <int_0=1000><int_0:spacer> x Dragon bones (very valuable).");
+        assertHidden("Playername1 received a drop: <int_0=10><int_0:spacer> x Dragon bones (very valuable).");
+    }
+
+    @Test
+    public void hidesDropsSentAsTemplatesWithoutTheirValue()
+    {
+        // Made up: a value that's shown but never set is left out, so the drop has no value
+        when(config.filterRegularDrops()).thenReturn(true);
+        when(config.lootGpThreshold()).thenReturn(1);
+
+        assertHidden("Playername1 received a drop: Onyx bolts (e) (<int_0:spacer> coins).");
     }
 
     @Test

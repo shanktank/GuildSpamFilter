@@ -115,6 +115,9 @@ public class GeneralFiltersTest extends FilterTestBase
         assertHidden("Biceps Btw has a funny feeling like they would have been followed: Vorki at 50 killcount.");
         assertHidden("Biceps Btw feels something weird sneaking into their backpack: Heron at 5,000,000 XP.");
         assertHidden("Biceps Btw has acquired something special: Olmlet at 50 killcount.");
+        // Seen in RuneLite's debug log, November 2026
+        assertHidden("<img=2> <int_p1=0>Playername3 feels something weird sneaking into <switch,int_p1,his,her,their> " +
+                "backpack: <int_0=13>Skotos at <int_0:spacer> killcount from Skotizo.");
     }
 
     @Test
@@ -142,6 +145,8 @@ public class GeneralFiltersTest extends FilterTestBase
         assertHidden("Biceps Btw has completed a quest: Dragon Slayer II");
         // Seen in an in-game screenshot, November 2026: no full stop
         assertHidden("alandouze has completed a quest: The Writing's on the Wall");
+        // Seen in RuneLite's debug log, November 2026: the quest name is set in front of the player's name
+        assertHidden("<img=56> <str_quest_name_0=Daddy's Home>Playername3 has completed a quest: <str_quest_name_0>");
     }
 
     @Test
