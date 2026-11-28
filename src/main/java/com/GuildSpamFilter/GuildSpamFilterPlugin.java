@@ -19,6 +19,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.util.Text;
 import net.runelite.http.api.item.ItemPrice;
 
 import javax.inject.Inject;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -62,6 +64,13 @@ public class GuildSpamFilterPlugin extends Plugin
     private static final String EASY = "Easy";
     private static final String RAID_LOOT_TEXT = "received special loot from a raid";
     private static final String CABBAGE = "Cabbage";
+
+    // The game sends some broadcasts as templates that the chat box fills in. "<int_0=N>" and "<str_quest_name_0=...>"
+    // set a value and show nothing, a later "<int_0:spacer>" or "<str_quest_name_0>" shows it, and
+    // "<switch,int_p1,his,her,their>" shows the option the value picks. A value can be set again, so they're filled in
+    // from left to right: "<int_0=14><int_0:spacer> x Runite ore<int_0=142926> (<int_0:spacer> coins)" becomes
+    // "14 x Runite ore (142,926 coins)". Other tags, like <img=2> and <colHIGHLIGHT>, are kept.
+    private static final Pattern TEMPLATE_TAG = Pattern.compile("<(?:((?:int|str)_\\w+)(?:=([^>]*)|:(\\w+))?|switch,(\\w+),([^>]*))>");
 
     @Inject
     private Client client;
@@ -346,9 +355,11 @@ public class GuildSpamFilterPlugin extends Plugin
 
     private boolean shouldFilterMessage(String message)
     {
-        String cleanedMessage = message.replaceFirst("^<img=\\d+>\\s*", "")  // Remove <img=X> and any spaces after it
-                                       .replaceFirst("^[^|]*\\|", "")        // Remove everything up to and including |
-                                       .trim();
+        // The text the chat box shows: template tags filled in, then every other tag removed; that includes <img=X>
+        // icons and tags other plugins add, like Chat Notifications' "<colHIGHLIGHT><u>name</u><colNORMAL>"
+        String cleanedMessage = Text.unescapeJagex(fillInTemplateTags(message))
+                                    .replaceFirst("^[^|]*\\|", "")  // Remove everything up to and including |
+                                    .trim();
 
         // Always included players check
         if (isAlwaysIncludedPlayer(cleanedMessage))
@@ -382,6 +393,43 @@ public class GuildSpamFilterPlugin extends Plugin
                 filterAchievementDiaries(cleanedMessage) ||
                 filterCustomFilters(cleanedMessage) ||
                 filterCustomRegexFilters(cleanedMessage);
+    }
+
+    private static String fillInTemplateTags(String message)
+    {
+        HashMap<String, String> values = new HashMap<String, String>();
+
+        // replaceAll calls the function once per tag, in order, so each value is the one set most recently
+        return TEMPLATE_TAG.matcher(message).replaceAll(tag ->
+        {
+            String shownText = "";
+
+            // Groups: 1 = value name, 2 = value being set, 3 = format, 4 = switch's value name, 5 = switch's options
+            if (tag.group(4) != null)
+            {
+                String[] options = tag.group(5).split(",", -1);
+                long option = readNumber(values.getOrDefault(tag.group(4), ""));
+                if (option != -1 && option < options.length)
+                {
+                    shownText = options[(int) option];
+                }
+            }
+            else if (tag.group(2) != null)
+            {
+                values.put(tag.group(1), tag.group(2));
+            }
+            else
+            {
+                // "spacer" shows the number with thousands separators; the root locale's are commas, like the game's
+                String value = values.getOrDefault(tag.group(1), "");
+                shownText = "spacer".equals(tag.group(3)) && value.matches("\\d{1,18}")
+                        ? String.format(Locale.ROOT, "%,d", Long.parseLong(value))
+                        : value;
+            }
+
+            // The text is used as is, not as a replacement pattern where "$" and "\" mean something
+            return Matcher.quoteReplacement(shownText);
+        });
     }
 
     private boolean isAlwaysIncludedPlayer(String message)
